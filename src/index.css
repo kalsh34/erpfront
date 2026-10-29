@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   THEME TOKENS — the whole app reads these CSS variables.
+   Light theme is the default; `.dark` on <html> flips them.
+   ============================================================ */
+:root {
+  color-scheme: light;
+
+  /* Surfaces & backgrounds */
+  --c-canvas: 248 249 251;        /* #f8f9fb — light gray page background */
+  --c-surface: 255 255 255;       /* #ffffff — white card surface */
+  --c-surface-hover: 241 245 249; /* #f1f5f9 — hover row/card */
+  --c-subtle: 241 245 249;        /* #f1f5f9 — inner chips, tab rails */
+  --c-subtle-hover: 226 232 240;  /* #e2e8f0 */
+  --c-ink: 15 23 42;              /* #0f172a — main text (dark gray) */
+  --c-muted: 100 116 139;         /* #64748b — secondary text (gray) */
+  --c-subtext: 148 163 184;       /* #94a3b8 — tertiary text */
+  --c-line: 226 232 240;          /* #e2e8f0 — light gray borders */
+  --c-line-strong: 203 213 225;   /* #cbd5e1 — active borders */
+
+  /* Semantic status tokens */
+  --c-success: 16 185 129;        /* #10b981 — green */
+  --c-success-bg: 236 253 245;    /* #ecfdf5 — green subtle */
+  --c-success-text: 5 150 105;    /* #059669 — green text */
+  --c-success-border: 167 243 208;/* #a7f3d0 — green border */
+
+  --c-warning: 245 158 11;        /* #f59e0b — amber */
+  --c-warning-bg: 254 243 199;    /* #fef3c7 — amber subtle */
+  --c-warning-text: 180 83 9;     /* #b45309 — amber text */
+  --c-warning-border: 253 230 138;/* #fde68a — amber border */
+
+  --c-danger: 239 68 68;          /* #ef4444 — red */
+  --c-danger-bg: 254 242 242;     /* #fef2f2 — red subtle */
+  --c-danger-text: 220 38 38;     /* #dc2626 — red text */
+  --c-danger-border: 254 202 202; /* #fecaca — red border */
+
+  --c-info: 37 99 235;            /* #2563eb — blue */
+  --c-info-bg: 239 246 255;       /* #eff6ff — blue subtle */
+  --c-info-text: 37 99 235;       /* #2563eb — blue text */
+  --c-info-border: 191 219 254;   /* #bfdbfe — blue border */
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Surfaces & backgrounds */
+  --c-canvas: 15 23 42;           /* #0f172a — dark neutral slate-900 */
+  --c-surface: 26 34 51;          /* #1a2233 — slightly lighter dark surface */
+  --c-surface-hover: 33 43 65;    /* #212b41 — hover card/row */
+  --c-subtle: 30 41 59;           /* #1e293b — subtle chips, tab rails */
+  --c-subtle-hover: 45 55 77;     /* #2d374d */
+  --c-ink: 241 245 249;           /* #f1f5f9 — main text (near-white) */
+  --c-muted: 148 163 184;         /* #94a3b8 — secondary text (gray) */
+  --c-subtext: 100 116 139;       /* #64748b — tertiary text */
+  --c-line: 45 55 77;             /* #2d374d — subtle dark-gray borders */
+  --c-line-strong: 71 85 105;     /* #475569 — active borders */
+
+  /* Semantic status tokens */
+  --c-success: 52 211 153;        /* #34d399 — green */
+  --c-success-bg: 6 78 59;        /* emerald-900/40 — green subtle */
+  --c-success-text: 110 231 183;  /* #6ee7b7 — green text */
+  --c-success-border: 6 95 70;    /* emerald-800/60 — green border */
+
+  --c-warning: 251 191 36;        /* #fbbf24 — amber */
+  --c-warning-bg: 120 53 15;      /* amber-900/40 — amber subtle */
+  --c-warning-text: 252 211 77;   /* #fcd34d — amber text */
+  --c-warning-border: 146 64 14;  /* amber-800/60 — amber border */
+
+  --c-danger: 248 113 113;        /* #f87171 — red */
+  --c-danger-bg: 127 29 29;       /* red-900/40 — red subtle */
+  --c-danger-text: 252 165 165;   /* #fca5a5 — red text */
+  --c-danger-border: 153 27 27;   /* red-800/60 — red border */
+
+  --c-info: 96 165 250;           /* #60a5fa — blue */
+  --c-info-bg: 30 58 138;         /* blue-900/40 — blue subtle */
+  --c-info-text: 147 197 253;     /* #93c5fd — blue text */
+  --c-info-border: 30 64 175;     /* blue-800/60 — blue border */
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: rgb(var(--c-canvas));
+  color: rgb(var(--c-ink));
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Amharic (Ge'ez script) — when <html lang="am">, switch the whole app to a
+   font stack that includes Nyala/Abyssinica/Noto Ethiopic. Kept after `body`
+   and scoped to the root element so it wins the cascade over body's stack;
+   every element inherits it instead of the latin-only body font. */
+html[lang='am'] body,
+html[lang='am'] button,
+html[lang='am'] input,
+html[lang='am'] select,
+html[lang='am'] textarea {
+  font-family: 'Noto Sans Ethiopic', 'Nyala', 'Abyssinica SIL', 'Ebrima',
+    -apple-system, 'Segoe UI', sans-serif;
+}
+
+@layer components {
+  /* Shared input surface — used by plain <input>/<select>/<textarea> across pages
+     so every form control looks identical (surface bg, line border, blue focus). */
+  .v-input {
+    width: 100%;
+    border: 1px solid rgb(var(--c-line));
+    border-radius: 0.75rem;
+    background: rgb(var(--c-surface));
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    color: rgb(var(--c-ink));
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+  }
+  .v-input::placeholder {
+    color: rgb(var(--c-muted));
+    opacity: 0.85;
+  }
+  .v-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+  .v-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: rgb(var(--c-subtle));
+  }
+  .v-input.pl-10,
+  .v-input.\!pl-10 {
+    padding-left: 2.5rem !important;
+  }
+}
+
+/* Shared card surface — themed, bordered, soft shadow. */
+.v-card {
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-line));
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+.dark .v-card {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Interactive card (clickable with hover elevation and brand blue border) */
+.v-card-interactive {
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-line));
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.v-card-interactive:hover {
+  border-color: #93c5fd;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.10);
+}
+.dark .v-card-interactive:hover {
+  border-color: #2563eb;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Shared field label */
+.v-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--c-muted));
+  margin-bottom: 0.375rem;
+}
+.v-label--required::after {
+  content: ' *';
+  color: #2563eb;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 999px;
+}
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.3);
+}
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.15) transparent;
+}
+
+/* Hide scrollbars completely while preserving smooth scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

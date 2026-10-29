@@ -1,0 +1,18 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+*.tsbuildinfo
+
+# env — local overrides must never be committed
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+
+# os
+Thumbs.db
+.DS_Store
