@@ -6,6 +6,7 @@ import { UserRole } from '../../types';
 import { Badge, Button, Card, EmptyState, FormField, LoadingSpinner, Modal, Select, Tabs } from '../../components/ui';
 import { InfoTooltip } from '../../components/ui/Tooltip';
 import { formatDisplayDate, todayYmd, toYmd } from '../../lib/dates';
+import { fullName } from '../../lib/personName';
 import { useT } from '../../i18n';
 
 interface SiteOption { _id: string; siteName: string; siteCode?: string }
@@ -150,7 +151,7 @@ export default function GuardAttendancePage() {
 
   // ── Loaders ──────────────────────────────────────────────────────
   useEffect(() => {
-    api.get('/sites')
+    api.get('/sites', { params: { limit: 1000, sort: 'siteName', dir: 'asc' } })
       .then((res) => {
         const list: SiteOption[] = res.data.data || [];
         setSites(list);
@@ -312,7 +313,7 @@ export default function GuardAttendancePage() {
       if (failed.length > 0) {
         const names = failed.map((f) => {
           const row = roster.rows.find((r) => r.guard._id === f.guardId);
-          const name = row ? `${row.guard.firstName} ${row.guard.lastName}` : f.guardId;
+          const name = row ? fullName(row.guard) : f.guardId;
           return `${name}: ${f.message}`;
         });
         setError(t('attendanceSavedWithRejected', { saved: String(savedCount), rejected: String(failed.length), detail: names.join(' | ') }));
@@ -404,7 +405,7 @@ export default function GuardAttendancePage() {
       if (failed.length > 0) {
         const names = failed.map((f) => {
           const r = sheet.rows.find((x) => x.guard._id === f.guardId && x.site._id === f.siteId);
-          const name = r ? `${r.guard.firstName} ${r.guard.lastName}` : f.guardId;
+          const name = r ? fullName(r.guard) : f.guardId;
           return `${name}: ${f.message}`;
         });
         setError(t('attendanceSavedWithRejected', { saved: String(savedCount), rejected: String(failed.length), detail: names.join(' | ') }));
@@ -580,7 +581,7 @@ export default function GuardAttendancePage() {
                       <tr key={row.guard._id} className={`transition-colors ${rowErr ? 'bg-danger-subtle/60' : changed ? 'bg-info-subtle/40' : 'hover:bg-subtle/60'}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-ink">{row.guard.firstName} {row.guard.lastName}</span>
+                            <span className="font-semibold text-ink">{fullName(row.guard)}</span>
                             <span className="text-xs text-subtext font-mono">{row.guard.employeeCode}</span>
                             {row.assignment.isPrimary && <Badge variant="info">{t('attendancePrimary')}</Badge>}
                           </div>
@@ -645,7 +646,7 @@ export default function GuardAttendancePage() {
                                 </Badge>
                                 {canManage && !locked && (
                                   <button
-                                    onClick={() => setVoidTarget({ recordId: row.record!._id, guardName: `${row.guard.firstName} ${row.guard.lastName}`, hours: row.record!.hoursWorked })}
+                                    onClick={() => setVoidTarget({ recordId: row.record!._id, guardName: fullName(row.guard), hours: row.record!.hoursWorked })}
                                     className="text-xs text-danger hover:underline"
                                   >
                                     {t('attendanceVoid')}
@@ -763,7 +764,7 @@ export default function GuardAttendancePage() {
                       <tr key={key} className={`transition-colors ${rowErr ? 'bg-danger-subtle/60' : changed ? 'bg-info-subtle/40' : 'hover:bg-subtle/60'}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-ink">{row.guard.firstName} {row.guard.lastName}</span>
+                            <span className="font-semibold text-ink">{fullName(row.guard)}</span>
                             <span className="text-xs text-subtext font-mono">{row.guard.employeeCode}</span>
                             {row.assignment.isPrimary && <Badge variant="info">{t('attendancePrimary')}</Badge>}
                           </div>
@@ -856,7 +857,7 @@ export default function GuardAttendancePage() {
                     <li key={`${r.guard._id}-${r.site._id}-${i}`} className="flex items-start gap-2">
                       <AlertTriangle size={13} className="mt-1 flex-shrink-0 text-warning" />
                       <span>
-                        <b className="text-ink">{r.guard.employeeCode} {r.guard.firstName} {r.guard.lastName}</b> · {r.site.siteName}: {w}
+                        <b className="text-ink">{r.guard.employeeCode} {fullName(r.guard)}</b> · {r.site.siteName}: {w}
                       </span>
                     </li>
                   ))
@@ -922,7 +923,7 @@ export default function GuardAttendancePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
-                    {totals.rows.filter((row) => `${row.guard.firstName} ${row.guard.lastName} ${row.guard.employeeCode}`.toLowerCase().includes(guardSearch.toLowerCase()) &&
+                    {totals.rows.filter((row) => `${fullName(row.guard)} ${row.guard.employeeCode}`.toLowerCase().includes(guardSearch.toLowerCase()) &&
                       (!primaryFilter || row.primarySiteId === primaryFilter) &&
                       (!additionalFilter || row.sites.some((s) => !s.isPrimary && s.siteId === additionalFilter)) &&
                       (!attendanceStatus || (attendanceStatus === 'missing' ? row.totalHours === 0 : row.totalHours > 0))).map((row) =>
@@ -931,7 +932,7 @@ export default function GuardAttendancePage() {
                           <td className="px-4 py-3 align-top">
                             {idx === 0 && (
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold text-ink">{row.guard.firstName} {row.guard.lastName}</span>
+                                <span className="font-semibold text-ink">{fullName(row.guard)}</span>
                                 <span className="text-xs text-subtext font-mono">{row.guard.employeeCode}</span>
                                 <span className="text-xs text-muted">Primary: {row.primarySiteName || 'Unresolved'} · Overall {row.totalHours}h {row.warnings?.join(' ')}</span>
                               </div>
@@ -972,7 +973,7 @@ export default function GuardAttendancePage() {
                     <AlertTriangle size={16} className="mt-0.5" />
                     <div>
                       <span className="font-semibold">{t('attendanceNoAttendanceThisPeriod')}</span>{' '}
-                      {totals.missingAttendance.map((g) => `${g.employeeCode} ${g.firstName} ${g.lastName}`).join(', ')}
+                      {totals.missingAttendance.map((g) => `${g.employeeCode} ${fullName(g)}`).join(', ')}
                     </div>
                   </div>
                 </Card>
@@ -986,7 +987,7 @@ export default function GuardAttendancePage() {
                       <li key={i} className="flex items-start gap-2">
                         <AlertTriangle size={14} className="mt-1 flex-shrink-0 text-warning" />
                         <span>
-                          {issue.guard.employeeCode ? `${issue.guard.employeeCode} ${issue.guard.firstName} ${issue.guard.lastName}: ` : ''}
+                          {issue.guard.employeeCode ? `${issue.guard.employeeCode} ${fullName(issue.guard)}: ` : ''}
                           {issue.message}
                         </span>
                       </li>

@@ -119,9 +119,9 @@ export const MODULE_GROUPS: ModuleGroup[] = [
     navBg: 'bg-surface border-b border-line',
     subFeatures: [
       { label: 'Guards', route: '/guards', icon: OperationsIcon, labelKey: 'navGuards' },
-      // Guard Patrols hidden from OPERATIONS this cycle (nav + route); the page and
-      // its API remain intact for admins/CEO.
-      { label: 'Guard Patrols', route: '/guard-patrols', icon: AttendanceIcon, labelKey: 'navGuardPatrols', roles: [UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HR_ADMIN, UserRole.CEO] },
+      // Guard Patrols is not ready yet — nav entry and route are commented out
+      // until the page ships. The page file and its API stay in the repo.
+      // { label: 'Guard Patrols', route: '/guard-patrols', icon: AttendanceIcon, labelKey: 'navGuardPatrols', roles: [UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HR_ADMIN, UserRole.CEO] },
       { label: 'Attendance', route: '/attendance', icon: AttendanceIcon, labelKey: 'navAttendance' },
       { label: 'Rotations', route: '/rotations', icon: OperationsIcon, labelKey: 'navRotations' },
       { label: 'Fleet', route: '/fleet', icon: FleetIcon, labelKey: 'navFleet' },
@@ -173,15 +173,16 @@ export const MODULE_GROUPS: ModuleGroup[] = [
   },
   {
     id: 'marketing',
-    label: 'Marketing & Proposals',
-    labelKey: 'groupMarketing',
+    label: 'Proforma',
     color: '#D97706',
     bg: 'bg-amber-50/50 dark:bg-navy-900',
     text: 'text-amber-900 dark:text-amber-200',
     borderColor: 'border-amber-200 dark:border-navy-700',
     navBg: 'bg-surface border-b border-line',
     subFeatures: [
-      { label: 'Service Library', route: '/service-library', icon: MarketingIcon, labelKey: 'navServiceLibrary' },
+      { label: 'Companies', route: '/marketing/companies', icon: CompanyIcon },
+      { label: 'Service Roles', route: '/marketing/roles', icon: MarketingIcon },
+      { label: 'Proformas', route: '/marketing/proformas', icon: ReportsIcon },
     ],
     // Nav follows role defaults for SERVICE_READ (SUPER_ADMIN). Other roles see
     // the tab only after an explicit 'marketing' module grant is reflected via
@@ -448,11 +449,9 @@ export const MODULES: ModuleDef[] = [
   },
   {
     id: 'marketing',
-    label: 'Marketing & Proposals',
-    subtitle: 'Reusable service library for guard, CCTV, alarm, QR patrol and custom services.',
-    labelKey: 'moduleMarketing',
-    subtitleKey: 'moduleMarketingSub',
-    route: '/service-library',
+    label: 'Proforma',
+    subtitle: 'Register client companies and guard roles, then issue numbered proforma quotations.',
+    route: '/marketing/proformas',
     icon: MarketingIcon,
     color: '#D97706',
     bg: 'bg-surface',
@@ -502,7 +501,7 @@ const ROUTE_OVERRIDES: { pattern: RegExp; groupId: string }[] = [
   { pattern: /^\/contracts(\/.*)?$/, groupId: 'hr' },
   { pattern: /^\/reports(\/.*)?$/, groupId: 'reports' },
   { pattern: /^\/purchase(\/.*)?$/, groupId: 'procurement' },
-  { pattern: /^\/service-library(\/.*)?$/, groupId: 'marketing' },
+  { pattern: /^\/marketing(\/.*)?$/, groupId: 'marketing' },
 ];
  
 export function getModuleGroupForRoute(pathname: string): ModuleGroup | null {

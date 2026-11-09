@@ -6,6 +6,7 @@ import { useT } from '../../i18n';
 import { PageHeader } from '../../components/ui';
 import { fleetApi, unwrap, errOf, FleetVehicle, FleetDriver, FleetAssignment, FleetMaintenance } from './fleetApi';
 import { Input, LabeledSelect } from './uiBits';
+import { fullName } from '../../lib/personName';
 
 const VEHICLE_TYPES = ['CAR', 'PICKUP', 'MOTORCYCLE', 'TRUCK', 'VAN', 'OTHER'];
 const MAINTENANCE_TYPES = ['ROUTINE_SERVICE', 'REPAIR', 'INSPECTION', 'TIRE_CHANGE', 'OTHER'];
@@ -113,7 +114,7 @@ export default function FleetPage() {
 
   const driverName = (d: FleetDriver) => {
     const emp = typeof d.employeeId === 'object' ? d.employeeId : null;
-    return emp ? `${emp.firstName} ${emp.lastName} (${emp.employeeCode})` : (d.employeeId as string);
+    return emp ? `${fullName(emp)} (${emp.employeeCode})` : (d.employeeId as string);
   };
 
   return (
@@ -188,7 +189,7 @@ export default function FleetPage() {
                     return (
                       <tr key={a._id} className="border-b border-line last:border-0 hover:bg-subtle/50">
                         <td className="px-4 py-3 font-medium text-ink">{v?.plateNumber || (a.vehicleId as string)}</td>
-                        <td className="px-4 py-3 text-muted">{d && emp ? `${emp.firstName} ${emp.lastName} (${emp.employeeCode})` : (a.driverId as string)}</td>
+                        <td className="px-4 py-3 text-muted">{d && emp ? `${fullName(emp)} (${emp.employeeCode})` : (a.driverId as string)}</td>
                         <td className="px-4 py-3 text-muted">{a.purpose || '—'}</td>
                         <td className="px-4 py-3 text-muted">{new Date(a.effectiveFrom).toLocaleDateString()}</td>
                         <td className="px-4 py-3 text-right">

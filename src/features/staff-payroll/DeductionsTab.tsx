@@ -3,6 +3,7 @@ import { Plus, XCircle } from 'lucide-react';
 import api from '../../lib/api';
 import { Badge, Button, Card, FormField, LoadingSpinner, Select } from '../../components/ui';
 import { useT } from '../../i18n';
+import { fullName } from '../../lib/personName';
 
 interface EmployeeOption { _id: string; employeeCode: string; firstName: string; lastName: string }
 
@@ -24,7 +25,7 @@ const now = new Date();
 
 const empName = (d: DeductionRow) => {
   const e = typeof d.employeeId === 'object' ? d.employeeId : null;
-  return e ? `${e.firstName} ${e.lastName} (${e.employeeCode})` : '—';
+  return e ? `${fullName(e)} (${e.employeeCode})` : '—';
 };
 
 /** Shared loan/advance/penalty deduction infrastructure (staff view, all employees). */
@@ -113,7 +114,7 @@ export function DeductionsTab() {
         <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-3">
           <FormField label={t('spEmployee')}>
             <Select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} placeholder={t('spSelectEmployee')}>
-              {employees.map((e) => <option key={e._id} value={e._id}>{e.firstName} {e.lastName} ({e.employeeCode})</option>)}
+              {employees.map((e) => <option key={e._id} value={e._id}>{fullName(e)} ({e.employeeCode})</option>)}
             </Select>
           </FormField>
           <FormField label={t('spType')}>

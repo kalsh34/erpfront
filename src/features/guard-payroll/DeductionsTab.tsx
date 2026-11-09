@@ -3,6 +3,7 @@ import { Plus, XCircle } from 'lucide-react';
 import api from '../../lib/api';
 import { Badge, Button, Card, FormField, LoadingSpinner, Select } from '../../components/ui';
 import { useT } from '../../i18n';
+import { fullName } from '../../lib/personName';
 
 interface GuardOption { _id: string; employeeCode: string; firstName: string; lastName: string }
 
@@ -24,7 +25,7 @@ const now = new Date();
 
 const empName = (d: DeductionRow) => {
   const e = typeof d.employeeId === 'object' ? d.employeeId : null;
-  return e ? `${e.firstName} ${e.lastName} (${e.employeeCode})` : '—';
+  return e ? `${fullName(e)} (${e.employeeCode})` : '—';
 };
 
 /** Loans, advances, penalties and other deductions (shared payroll infrastructure). */
@@ -120,7 +121,7 @@ export function DeductionsTab({ onError }: { onError: (msg: string | null) => vo
             <Select value={form.employeeId} onChange={(e) => setForm({ ...form, employeeId: e.target.value })}>
               <option value="">—</option>
               {guards.map((g) => (
-                <option key={g._id} value={g._id}>{g.firstName} {g.lastName} ({g.employeeCode})</option>
+                <option key={g._id} value={g._id}>{fullName(g)} ({g.employeeCode})</option>
               ))}
             </Select>
           </FormField>

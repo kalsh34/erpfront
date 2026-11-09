@@ -4,6 +4,7 @@ import api from '../../lib/api';
 import { Badge, Button, Card, FormField, LoadingSpinner, Select } from '../../components/ui';
 import { useT } from '../../i18n';
 import { fmtMoney, StaffBonusEntry, StaffOvertimeEntry, staffName } from './staffPayroll.types';
+import { fullName } from '../../lib/personName';
 
 interface EmployeeOption { _id: string; employeeCode: string; firstName: string; lastName: string }
 
@@ -103,7 +104,7 @@ export function EntriesTab() {
     <FormField label={label}>
       <Select value={value} onChange={(e) => onChange(e.target.value)} placeholder="Select employee">
         {employees.map((e) => (
-          <option key={e._id} value={e._id}>{e.firstName} {e.lastName} ({e.employeeCode})</option>
+          <option key={e._id} value={e._id}>{fullName(e)} ({e.employeeCode})</option>
         ))}
       </Select>
     </FormField>

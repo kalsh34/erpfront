@@ -5,6 +5,7 @@ import { UserRole, StaffAttendanceStatus } from '../../types';
 import { Button, Card, LoadingSpinner, Modal } from '../../components/ui';
 import { InfoTooltip } from '../../components/ui/Tooltip';
 import { useT, useLang, getMonthNames } from '../../i18n';
+import { fullName } from '../../lib/personName';
 import type { DictKey } from '../../i18n';
 
 interface Employee {
@@ -128,7 +129,7 @@ export default function StaffAttendancePage() {
   const filteredGrid = grid.filter((row) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    const name = `${row.employee.firstName} ${row.employee.lastName}`.toLowerCase();
+    const name = fullName(row.employee).toLowerCase();
     const code = row.employee.employeeCode.toLowerCase();
     return name.includes(q) || code.includes(q);
   });
@@ -136,7 +137,7 @@ export default function StaffAttendancePage() {
   const filteredSummary = summaries.filter((s) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    const name = `${s.employee.firstName} ${s.employee.lastName}`.toLowerCase();
+    const name = fullName(s.employee).toLowerCase();
     const code = s.employee.employeeCode.toLowerCase();
     return name.includes(q) || code.includes(q);
   });
@@ -439,7 +440,7 @@ export default function StaffAttendancePage() {
                         </td>
                       )}
                       <td className="px-3 py-1.5 border border-line sticky left-0 bg-surface z-10">
-                        <div className="font-medium text-sm text-ink">{row.employee.firstName} {row.employee.lastName}</div>
+                        <div className="font-medium text-sm text-ink">{fullName(row.employee)}</div>
                         <div className="text-[10px] text-subtext flex items-center gap-1.5">
                           <span>{row.employee.employeeCode}</span>
                           <span className={`inline-flex px-1.5 py-px rounded-full text-[9px] font-medium border ${EMPLOYEE_STATUS_STYLE[row.employee.status || 'INACTIVE'] || 'bg-subtle text-muted border-line'}`}>
@@ -519,7 +520,7 @@ export default function StaffAttendancePage() {
                 ) : filteredSummary.map((s) => (
                   <tr key={s.employee._id} className="hover:bg-surface-hover transition-colors">
                     <td className="px-4 py-3 text-left">
-                      <p className="font-medium text-ink">{s.employee.firstName} {s.employee.lastName}</p>
+                      <p className="font-medium text-ink">{fullName(s.employee)}</p>
                     </td>
                     <td className="px-3 py-3 text-center text-muted text-xs font-mono">{s.employee.employeeCode}</td>
                     <td className="px-3 py-3 text-center">

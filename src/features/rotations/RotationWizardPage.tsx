@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader, Button, Card, LoadingSpinner, InfoTooltip } from '../../components/ui';
 import api from '../../lib/api';
 import { useT } from '../../i18n';
+import { fullName } from '../../lib/personName';
 import { rotationsApi } from './api';
 import type { ShiftDefinition, RestRule } from './types';
 
@@ -71,7 +72,7 @@ export default function RotationWizardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const sRes = await api.get('/sites');
+        const sRes = await api.get('/sites', { params: { limit: 1000, sort: 'siteName', dir: 'asc' } });
         setSites(sRes.data.data || []);
       } catch (e) {
         setError(t('rotFailedLoadOptions'));
@@ -558,7 +559,7 @@ export default function RotationWizardPage() {
                       onChange={() => toggleGuard(emp._id, selectedGuards, setSelectedGuards)}
                       className="rounded border-line text-primary-600 focus:ring-primary-500/30"
                     />
-                    <span className="font-medium text-ink">{emp.firstName} {emp.lastName}</span>
+                    <span className="font-medium text-ink">{fullName(emp)}</span>
                     <span className="text-xs text-subtext">{emp.employeeCode}</span>
                     {isPrimaryHere && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-info-subtle text-info-text border border-info-line">

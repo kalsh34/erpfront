@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Modal } from '../../components/ui';
 import api from '../../lib/api';
+import { fullName } from '../../lib/personName';
+import { can, useAuthStore } from '../../stores/authStore';
+import { PERMISSIONS } from '../../types';
 
 interface Site {
   _id: string;
@@ -108,7 +111,8 @@ const TABS = [
 function getGuardName(g: any): string {
   if (!g) return 'Unknown';
   if (typeof g === 'string') return g;
-  return `${g.firstName || ''} ${g.lastName || ''}`.trim() || 'Unknown';
+  // Middle name included — full legal name everywhere guards are listed.
+  return fullName(g) || 'Unknown';
 }
 
 function getGuardCode(g: any): string {
@@ -148,6 +152,20 @@ export default function SiteDetail() {
   const [noteText, setNoteText] = useState('');
   const [noteDate, setNoteDate] = useState(new Date().toISOString().split('T')[0]);
   const [addNoteOpen, setAddNoteOpen] = useState(false);
+  const { user } = useAuthStore();
+  const canAssignGuard = can(user?.permissions, PERMISSIONS.GUARD_ASSIGN_SITE);
+  const [notice, setNotice] = useState('');
+
+  // Assign-guard flow — same endpoint as the Sites table row action, so the
+  // deployment lands in the same assignment history payroll reads.
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignGuards, setAssignGuards] = useState<any[]>([]);
+  const [assignGuardId, setAssignGuardId] = useState('');
+  const [assignRole, setAssignRole] = useState<'GUARD' | 'SUPERVISOR'>('GUARD');
+  const [assignFrom, setAssignFrom] = useState(new Date().toLocaleDateString('en-CA'));
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignError, setAssignError] = useState('');
 
   const [form, setForm] = useState({
     siteCode: '', siteName: '', client: '', location: '', siteType: 'COMMERCIAL',
@@ -217,6 +235,51 @@ export default function SiteDetail() {
     }
   };
 
+  const openAssignGuard = async () => {
+    setAssignOpen(true);
+    setAssignGuardId('');
+    setAssignRole('GUARD');
+    setAssignFrom(new Date().toLocaleDateString('en-CA'));
+    setAssignError('');
+    setAssignLoading(true);
+    try {
+      const res = await api.get('/guards');
+      // /guards returns { employee, profile, currentAssignments } rows — flatten
+      // the employee so the picker has _id, names and the current assignments.
+      const rows = (res.data.data || []).map((r: any) => (r && r.employee
+        ? { ...r.employee, currentAssignments: r.currentAssignments || [] }
+        : r));
+      setAssignGuards(rows);
+    } catch (e: any) {
+      setAssignError(e.response?.data?.message || 'Unable to load guards.');
+      setAssignGuards([]);
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const submitAssignGuard = async () => {
+    if (!id || !assignGuardId) return;
+    setAssignSaving(true);
+    setAssignError('');
+    const guard = assignGuards.find((g) => g._id === assignGuardId);
+    try {
+      await api.post('/guards/assign-site', {
+        guardId: assignGuardId,
+        siteId: id,
+        effectiveFrom: assignFrom,
+        role: assignRole,
+      });
+      setNotice(`${guard ? fullName(guard) : 'Guard'} assigned to ${data?.site?.siteName || 'this site'}.`);
+      setAssignOpen(false);
+      await fetchDetail();
+    } catch (e: any) {
+      setAssignError(e.response?.data?.message || 'Unable to assign the guard to this site.');
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -273,6 +336,15 @@ export default function SiteDetail() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {!editing && !isInactive && canAssignGuard && (
+                <button
+                  onClick={openAssignGuard}
+                  className="h-9 px-4 rounded-xl bg-white text-primary-700 text-sm font-semibold hover:bg-primary-50 transition-all shadow-sm flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                  Assign Guard
+                </button>
+              )}
               {!editing ? (
                 <button onClick={() => setEditing(true)} className="h-9 px-4 rounded-xl bg-white/15 backdrop-blur-sm text-white text-sm font-medium hover:bg-white/25 transition-all border border-white/20 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -297,6 +369,12 @@ export default function SiteDetail() {
 
         {error && (
           <div className="bg-danger-subtle border border-danger-line text-danger-text px-4 py-3 rounded-xl text-sm">{error}</div>
+        )}
+        {notice && (
+          <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-success-line bg-success-subtle px-4 py-3 text-sm text-success-text">
+            <span>{notice}</span>
+            <button onClick={() => setNotice('')} aria-label="Dismiss message" className="text-lg leading-none">×</button>
+          </div>
         )}
 
         {/* Today's Summary Cards */}
@@ -512,7 +590,7 @@ export default function SiteDetail() {
                         <div className="flex items-center justify-between mt-1 text-[10px] text-subtext">
                           <span>
                             {Number(row.previous?.numberOfEmployees ?? 0)} → {Number(row.current?.numberOfEmployees ?? 0)} employees
-                            {row.changedBy?.firstName ? ` · by ${row.changedBy.firstName}${row.changedBy.lastName ? ' ' + row.changedBy.lastName : ''}` : ''}
+                            {row.changedBy?.firstName ? ` · by ${fullName(row.changedBy)}` : ''}
                           </span>
                           <span>{localDate(row.createdAt)}</span>
                         </div>
@@ -569,9 +647,7 @@ export default function SiteDetail() {
                 const gid = a.guardId?._id || a.guardId;
                 if (gid && !seen.has(String(gid))) {
                   seen.add(String(gid));
-                  const firstName = a.guardId?.firstName || '';
-                  const lastName = a.guardId?.lastName || '';
-                  guardList.push({ id: String(gid), name: `${firstName} ${lastName}`.trim() || 'Unknown' });
+                  guardList.push({ id: String(gid), name: fullName(a.guardId) || 'Unknown' });
                 }
               });
 
@@ -693,19 +769,38 @@ export default function SiteDetail() {
         {activeTab === 'guards' && (
           <div className="space-y-6">
             <div className="bg-surface rounded-2xl shadow-sm border border-line overflow-hidden">
-              <div className="px-6 py-4 border-b border-line">
-                <h2 className="text-lg font-bold text-ink">
-                  {isInactive ? `Guards Who Worked Here (${guardsList.length})` : `Assigned Guards (${guardsList.length})`}
-                </h2>
-                <p className="text-xs text-muted mt-0.5">
-                  {isInactive
-                    ? 'Site is inactive — showing guards who were assigned before deactivation (history)'
-                    : 'Guards with primary site assignment at this location'}
-                </p>
+              <div className="px-6 py-4 border-b border-line flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-ink">
+                    {isInactive ? `Guards Who Worked Here (${guardsList.length})` : `Assigned Guards (${guardsList.length})`}
+                  </h2>
+                  <p className="text-xs text-muted mt-0.5">
+                    {isInactive
+                      ? 'Site is inactive — showing guards who were assigned before deactivation (history)'
+                      : 'Guards with primary site assignment at this location'}
+                  </p>
+                </div>
+                {!isInactive && canAssignGuard && (
+                  <button
+                    onClick={openAssignGuard}
+                    className="h-9 px-4 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    Assign guard
+                  </button>
+                )}
               </div>
               {guardsList.length === 0 ? (
                 <div className="py-16 text-center text-sm text-muted">
-                  {isInactive ? 'No guard history for this site' : 'No guards currently assigned to this site'}
+                  <p>{isInactive ? 'No guard history for this site' : 'No guards currently assigned to this site'}</p>
+                  {!isInactive && canAssignGuard && (
+                    <button
+                      onClick={openAssignGuard}
+                      className="mt-3 h-9 px-4 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
+                    >
+                      Assign guard
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -808,7 +903,7 @@ export default function SiteDetail() {
                   <div key={n._id} className="px-6 py-4 hover:bg-subtle/60 transition-colors">
                     <div className="flex items-center gap-3 mb-2">
                       <span className="text-xs font-mono text-muted">{n.date}</span>
-                      {n.recordedById && <span className="text-xs text-muted">by {n.recordedById.firstName} {n.recordedById.lastName}</span>}
+                      {n.recordedById && <span className="text-xs text-muted">by {fullName(n.recordedById)}</span>}
                     </div>
                     <p className="text-sm text-ink">{n.noteText}</p>
                   </div>
@@ -819,6 +914,79 @@ export default function SiteDetail() {
         )}
 
         {/* Delete Modal */}
+        {/* Assign guard — same flow as the Sites table row action. */}
+        <Modal
+          open={assignOpen}
+          onClose={() => { if (!assignSaving) setAssignOpen(false); }}
+          title={`Assign guard${site ? ` — ${site.siteName}` : ''}`}
+          subtitle={site ? `${site.siteCode} · ${site.location}` : ''}
+          size="md"
+          footer={
+            <div className="flex items-center justify-end gap-3 w-full">
+              <button
+                type="button"
+                onClick={() => setAssignOpen(false)}
+                disabled={assignSaving}
+                className="h-10 px-5 rounded-xl border border-line bg-surface text-sm font-medium text-ink hover:bg-canvas transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitAssignGuard}
+                disabled={assignSaving || !assignGuardId}
+                className="h-10 px-5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {assignSaving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                {assignSaving ? 'Assigning…' : 'Assign guard'}
+              </button>
+            </div>
+          }
+        >
+          <div className="space-y-4">
+            {assignError && (
+              <div className="bg-danger-subtle border border-danger-line text-danger-text px-4 py-3 rounded-xl text-sm">{assignError}</div>
+            )}
+            <div>
+              <label className="v-label v-label--required">Guard</label>
+              <select
+                value={assignGuardId}
+                onChange={(e) => setAssignGuardId(e.target.value)}
+                disabled={assignLoading}
+                className="v-input cursor-pointer"
+              >
+                <option value="">{assignLoading ? 'Loading guards…' : 'Select a guard'}</option>
+                {assignGuards
+                  .filter((g) => !(g.currentAssignments || []).some(
+                    (a: any) => (typeof a.siteId === 'object' && a.siteId ? a.siteId._id : a.siteId) === id,
+                  ))
+                  .map((g) => (
+                    <option key={g._id} value={g._id}>{fullName(g)} ({g.employeeCode})</option>
+                  ))}
+              </select>
+              <p className="text-[11px] text-muted mt-1">Guards already assigned to this site are hidden.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="v-label v-label--required">Start date</label>
+                <input type="date" value={assignFrom} onChange={(e) => setAssignFrom(e.target.value)} className="v-input" />
+              </div>
+              <div>
+                <label className="v-label">Role at site</label>
+                <select
+                  value={assignRole}
+                  onChange={(e) => setAssignRole(e.target.value as 'GUARD' | 'SUPERVISOR')}
+                  className="v-input cursor-pointer"
+                >
+                  <option value="GUARD">Guard</option>
+                  <option value="SUPERVISOR">Supervisor</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted">Payroll prices this deployment from the site's effective compensation rate, not the guard's legacy profile rate.</p>
+          </div>
+        </Modal>
+
         <Modal open={deleteOpen} onClose={() => { setDeleteOpen(false); setDeleteConfirm(''); }} title="Deactivate Site">
           <div className="space-y-4">
             <div className="bg-warning-subtle border border-warning-line rounded-xl p-3 text-sm text-warning-text">

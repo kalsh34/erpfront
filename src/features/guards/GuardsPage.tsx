@@ -3,6 +3,7 @@ import api from '../../lib/api';
 import { Button, LoadingSpinner, Modal, InfoTooltip } from '../../components/ui';
 import { formatDate, useLang, useT, type DictKey, type TParams } from '../../i18n';
 import GuardImportModal from './GuardImportModal';
+import { fullName } from '../../lib/personName';
 import { FileSpreadsheet } from 'lucide-react';
 
 type T = (key: DictKey, params?: TParams) => string;
@@ -14,6 +15,7 @@ interface GuardEmployee {
   _id: string;
   employeeCode: string;
   firstName: string;
+  middleName?: string;
   lastName: string;
   phone?: string;
   email?: string;
@@ -114,7 +116,12 @@ export default function GuardsPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [gRes, sRes] = await Promise.all([api.get('/guards'), api.get('/sites')]);
+      // Every site in the system (the default page size is 20 and was silently
+      // dropping the rest of the sites from the assignment pickers).
+      const [gRes, sRes] = await Promise.all([
+        api.get('/guards'),
+        api.get('/sites', { params: { limit: 1000, sort: 'siteName', dir: 'asc' } }),
+      ]);
       setGuards(gRes.data.data || []);
       setSites(sRes.data.data || []);
     } catch (e: any) { setFeedback({ error: e.response?.data?.message || 'Unable to load guards. Please retry.' }); }
@@ -314,7 +321,7 @@ export default function GuardsPage() {
                         {getInitials(guard.employee.firstName, guard.employee.lastName)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-ink truncate">{guard.employee.firstName} {guard.employee.lastName}</p>
+                        <p className="text-sm font-medium text-ink truncate">{fullName(guard.employee)}</p>
                         <p className="text-[11px] text-subtext truncate">
                           {siteCount > 0 ? t('guardsSitesCount', { count: siteCount }) : t('guardsUnassigned')}
                         </p>
@@ -347,7 +354,7 @@ export default function GuardsPage() {
                   </div>
                   <div className="min-w-0">
                     <h2 className="text-xl font-bold text-ink">
-                      {selectedGuardData.employee.firstName} {selectedGuardData.employee.lastName}
+                      {fullName(selectedGuardData.employee)}
                     </h2>
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span className="text-xs text-subtext font-mono">{selectedGuardData.employee.employeeCode}</span>
@@ -571,7 +578,7 @@ export default function GuardsPage() {
       {showAssignModal && selectedGuardData && (
         <Modal open onClose={closeAssignModal} title={t('guardsAssignSiteTitle')} size="md">
           <p className="text-sm text-muted mb-4">
-            {selectedGuardData.employee.firstName} {selectedGuardData.employee.lastName}
+            {fullName(selectedGuardData.employee)}
           </p>
 
           <label className="v-label mb-4">Assignment start date<input aria-label="Assignment start date" type="date" className="v-input" value={assignFrom} onChange={e => setAssignFrom(e.target.value)} /></label>
@@ -631,7 +638,7 @@ export default function GuardsPage() {
         <Modal open onClose={() => setRelieveTarget(null)} title={t('guardsRelieveTitleFor', { site: relieveTarget.siteName })} size="md">
           <p className="text-sm text-muted mb-4">
             {t('guardsRelieveBody', {
-              guard: `${selectedGuardData?.employee.firstName || ''} ${selectedGuardData?.employee.lastName || ''}`.trim(),
+              guard: fullName(selectedGuardData?.employee),
               site: relieveTarget.siteName,
             })}
           </p>

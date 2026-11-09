@@ -20,7 +20,8 @@ import GuardAttendancePage from './features/attendance/GuardAttendancePage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import OrganizationStructurePage from './features/organization/OrganizationStructurePage';
 import GuardsPage from './features/guards/GuardsPage';
-import GuardPatrolsPage from './features/guards/GuardPatrolsPage';
+// Guard Patrols page is not ready yet — kept in the repo but not routed/shown.
+// import GuardPatrolsPage from './features/guards/GuardPatrolsPage';
 import MySitesPage from './features/guard/MySitesPage';import MyProfilePage from './features/guard/MyProfilePage';
 import GuardDashboardPage from './features/guard/GuardDashboardPage';
 import GuardScanPage from './features/guard/GuardScanPage';
@@ -34,7 +35,11 @@ import GuardPayrollPage from './features/guard-payroll/GuardPayrollPage';
 import ModuleReportsPage from './features/reports/ModuleReportsPage';
 import { HelpProvider, HelpWidget, HelpPanel, TourOverlay, HelpCenter } from './help';
 import FleetPage from './features/fleet/FleetPage';
-import { ServiceLibraryPage } from './features/marketing/ServiceLibraryPage';
+import CompaniesPage from './features/marketing/CompaniesPage';
+import ServiceRolesPage from './features/marketing/ServiceRolesPage';
+import ProformaListPage from './features/marketing/ProformaListPage';
+import ProformaWizardPage from './features/marketing/ProformaWizardPage';
+import ProformaDetailPage from './features/marketing/ProformaDetailPage';
 
 // Procurement / Purchase Module Pages
 import { PurchaseDashboardPage } from './features/procurement/pages/PurchaseDashboardPage';
@@ -91,8 +96,9 @@ function AppLayout() {
           <Route path="/sites/:id" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HR_ADMIN, UserRole.FINANCE_OFFICER, UserRole.OPERATIONS, UserRole.CEO]}><SiteDetail /></ProtectedRoute>} />
 
           <Route path="/guards" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HR_ADMIN, UserRole.OPERATIONS, UserRole.CEO]}><GuardsPage /></ProtectedRoute>} />
-          {/* Guard Patrols: hidden from OPERATIONS this cycle — page/API untouched for admins/CEO */}
+          {/* Guard Patrols: page is not ready yet — route commented out on purpose.
           <Route path="/guard-patrols" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HR_ADMIN, UserRole.CEO]}><GuardPatrolsPage /></ProtectedRoute>} />
+          */}
           <Route path="/rotations" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.HR_ADMIN, UserRole.OPERATIONS, UserRole.HEAD, UserRole.CEO]}><RotationListPage /></ProtectedRoute>} />
           <Route path="/rotations/new" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.HR_ADMIN, UserRole.OPERATIONS]}><RotationWizardPage /></ProtectedRoute>} />
           <Route path="/rotations/:id" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.HR_ADMIN, UserRole.OPERATIONS, UserRole.HEAD, UserRole.CEO]}><RotationDetailPage /></ProtectedRoute>} />
@@ -128,8 +134,12 @@ function AppLayout() {
           <Route path="/purchase/reports" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.HR_ADMIN, UserRole.FINANCE_OFFICER, UserRole.HEAD, UserRole.CEO]}><PurchaseReportsPage /></ProtectedRoute>} />
           <Route path="/purchase/settings" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.SYSTEM_ADMIN, UserRole.FINANCE_OFFICER, UserRole.CEO]}><PurchaseSettingsPage /></ProtectedRoute>} />
 
-          // Marketing Service Library (Phase B) — nav + page gated on effective perms
-          <Route path="/service-library" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.CEO]}><ServiceLibraryPage /></ProtectedRoute>} />
+          {/* Marketing — Proforma module: registered companies, role catalog, issuing */}
+          <Route path="/marketing/companies" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.CEO]}><CompaniesPage /></ProtectedRoute>} />
+          <Route path="/marketing/roles" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.CEO]}><ServiceRolesPage /></ProtectedRoute>} />
+          <Route path="/marketing/proformas" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.CEO]}><ProformaListPage /></ProtectedRoute>} />
+          <Route path="/marketing/proformas/new" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.CEO]}><ProformaWizardPage /></ProtectedRoute>} />
+          <Route path="/marketing/proformas/:id" element={<ProtectedRoute roles={[UserRole.SUPER_ADMIN, UserRole.CEO]}><ProformaDetailPage /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

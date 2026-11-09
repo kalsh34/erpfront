@@ -107,8 +107,10 @@ export const statusVariant = (status: string): 'default' | 'success' | 'warning'
   }
 };
 
+import { fullName } from '../../lib/personName';
+
 export const staffName = (e: StaffOvertimeEntry['employeeId'] | StaffBonusEntry['employeeId']) =>
-  typeof e === 'object' ? `${e.firstName} ${e.lastName} (${e.employeeCode})` : '—';
+  typeof e === 'object' ? `${fullName(e)} (${e.employeeCode})` : '—';
 
 export const monthNameOf = (m: number) =>
   ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m - 1];

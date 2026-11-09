@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';import api, { getApiBaseUrl } from '../../lib/api';
 import { downloadReport } from '../payroll-shared/export';
+import { fullName } from '../../lib/personName';
 import ContractList from '../contracts/ContractList';
 import EmployeeFormModal from './EmployeeFormModal';
 import GuardImportModal from '../guards/GuardImportModal';
@@ -267,7 +268,7 @@ export default function EmployeeList() {
 
   const handleDelete = async () => {
     if (!selectedEmployee) return;
-    if (!confirm(t('deleteConfirm', { name: `${selectedEmployee.firstName} ${selectedEmployee.lastName}` }))) return;
+    if (!confirm(t('deleteConfirm', { name: fullName(selectedEmployee) }))) return;
     setDeleting(true);
     try {
       await api.delete(`/employees/${selectedEmployee._id}`);
@@ -516,7 +517,7 @@ export default function EmployeeList() {
                       {selectedEmployee.firstName?.[0]}{selectedEmployee.lastName?.[0]}
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-ink">{selectedEmployee.firstName} {selectedEmployee.lastName}</h2>
+                      <h2 className="text-lg font-bold text-ink">{fullName(selectedEmployee)}</h2>
                       <p className="text-sm text-muted">{selectedEmployee.employeeCode}</p>
                     </div>
                   </div>
@@ -815,7 +816,7 @@ export default function EmployeeList() {
           <div className="relative w-full max-w-md bg-surface rounded-2xl shadow-2xl p-6">
             <h3 className="text-base font-bold text-ink">{t('changeStatus')}</h3>
             <p className="text-sm text-muted mt-1">
-              {statusTarget.firstName} {statusTarget.lastName} ({statusTarget.employeeCode}) — {t('currently')}{' '}
+              {fullName(statusTarget)} ({statusTarget.employeeCode}) — {t('currently')}{' '}
               <span className="font-semibold text-ink">{t(STATUS_KEYS[statusTarget.status] ?? 'status')}</span>
             </p>
             <div className="mt-4 space-y-4">
@@ -980,7 +981,7 @@ function GuarantorTab() {
                             {emp.firstName?.[0]}{emp.lastName?.[0]}
                           </div>
                           <div>
-                            <p className="font-medium text-ink">{emp.firstName} {emp.lastName}</p>
+                            <p className="font-medium text-ink">{fullName(emp)}</p>
                             <p className="text-xs text-subtext">{emp.employeeCode}</p>
                           </div>
                         </div>
@@ -1050,7 +1051,7 @@ function AttendanceTab() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = summaries.filter(s => {
-    const name = `${s.employee.firstName} ${s.employee.lastName}`.toLowerCase();
+    const name = fullName(s.employee).toLowerCase();
     const q = search.toLowerCase();
     const matchSearch = !q || name.includes(q) || s.employee.employeeCode.toLowerCase().includes(q);
     const matchDept = deptFilter === 'all' || s.employee.department === deptFilter;
@@ -1162,7 +1163,7 @@ function AttendanceTab() {
                             {s.employee.firstName[0]}{s.employee.lastName[0]}
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-ink">{s.employee.firstName} {s.employee.lastName}</p>
+                            <p className="text-sm font-medium text-ink">{fullName(s.employee)}</p>
                             <p className="text-xs text-subtext">{s.employee.employeeCode}</p>
                           </div>
                         </div>
@@ -1243,7 +1244,7 @@ function PerformanceTab() {
     if (!search) return true;
     const emp = typeof r.employeeId === 'object' ? r.employeeId : null;
     const q = search.toLowerCase();
-    return emp ? `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(q) : false;
+    return emp ? fullName(emp).toLowerCase().includes(q) : false;
   });
 
   return (
@@ -1324,7 +1325,7 @@ function PerformanceTab() {
                                 {emp.firstName[0]}{emp.lastName[0]}
                               </div>
                               <div>
-                                <p className="text-sm font-medium text-ink">{emp.firstName} {emp.lastName}</p>
+                                <p className="text-sm font-medium text-ink">{fullName(emp)}</p>
                                 <p className="text-xs text-subtext">{emp.employeeCode}</p>
                               </div>
                             </div>
@@ -1364,7 +1365,7 @@ function PerformanceTab() {
                     <div key={r._id} className="flex items-center gap-3">
                       <span className="text-xs font-bold text-subtext w-4">{i + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-ink truncate">{emp.firstName} {emp.lastName}</p>
+                        <p className="text-sm font-medium text-ink truncate">{fullName(emp)}</p>
                       </div>
                       <span className="text-sm font-bold text-success-text">{r.score}</span>
                     </div>
@@ -1388,7 +1389,7 @@ function PerformanceTab() {
                   const daysLeft = dueDate ? Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
                   return (
                     <div key={r._id} className="flex items-center justify-between">
-                      <p className="text-sm text-muted">{emp.firstName} {emp.lastName}</p>
+                      <p className="text-sm text-muted">{fullName(emp)}</p>
                       <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                         isOverdue ? 'bg-danger-subtle text-danger-text' : daysLeft <= 7 ? 'bg-warning-subtle text-warning-text' : 'bg-info-subtle text-info-text'
                       }`}>
@@ -1413,7 +1414,7 @@ function PerformanceTab() {
                 <select value={perfForm.employeeId} onChange={e => setPerfForm({ ...perfForm, employeeId: e.target.value })}
                   className="w-full h-9 px-3 rounded-lg border border-line bg-surface text-sm text-ink">
                   <option value="">{t('selectEmployee')}</option>
-                  {employees.map((e: any) => <option key={e._id} value={e._id}>{e.firstName} {e.lastName}</option>)}
+                  {employees.map((e: any) => <option key={e._id} value={e._id}>{fullName(e)}</option>)}
                 </select>
               </div>
               <div>

@@ -3,8 +3,9 @@ import { ChevronDown, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuthStore } from '../../stores/authStore';
 import { UserRole } from '../../types';
-import { Card, FormField, Modal, Select, InfoTooltip } from '../../components/ui';
+import { FormField, Modal, Select, InfoTooltip } from '../../components/ui';
 import { downloadCsv } from '../payroll-shared/export';
+import { fullName } from '../../lib/personName';
 import { useT, type DictKey, type TParams } from '../../i18n';
 
 type T = (key: DictKey, params?: TParams) => string;
@@ -494,7 +495,7 @@ function ProvisionModal({ onClose, onCreated }: { onClose: () => void; onCreated
         setGuardOptions(
           (res.data.data || []).map((row: { employee: { _id: string; firstName: string; lastName: string; employeeCode?: string } }) => ({
             _id: row.employee._id,
-            label: `${row.employee.firstName} ${row.employee.lastName}${row.employee.employeeCode ? ` (${row.employee.employeeCode})` : ''}`,
+            label: `${fullName(row.employee)}${row.employee.employeeCode ? ` (${row.employee.employeeCode})` : ''}`,
           }))
         )
       )
@@ -1484,7 +1485,7 @@ function SystemSettingsTab() {
         </div>
         <div className="p-5 grid grid-cols-1 xl:grid-cols-2 gap-5">
           {tax.map((br) => (
-            <div key={br._id} className="rounded-xl border border-line bg-subtle p-4">
+            <div key={`${br.kind}-${br.name}-${br.effectiveFrom}`} className="rounded-xl border border-line bg-subtle p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-ink">{br.name}</p>
@@ -1504,7 +1505,7 @@ function SystemSettingsTab() {
                   <tbody>
                     {br.brackets.map((b, i) => (
                       <tr key={i} className={i < br.brackets.length - 1 ? 'border-b border-line/50' : ''}>
-                        <td className="py-1 font-mono text-ink">{b.min.toLocaleString()}</td>
+                        <td className="py-1 font-mono text-ink">{b.min === null ? '0' : b.min.toLocaleString()}</td>
                         <td className="py-1 font-mono text-ink">{b.max === null ? '∞' : b.max.toLocaleString()}</td>
                         <td className="py-1 text-right font-semibold text-ink">{b.rate}%</td>
                       </tr>
@@ -1515,7 +1516,7 @@ function SystemSettingsTab() {
             </div>
           ))}
           {pension.map((p) => (
-            <div key={p._id} className="rounded-xl border border-line bg-subtle p-4">
+            <div key={`${p.kind}-${p.name}-${p.effectiveFrom}`} className="rounded-xl border border-line bg-subtle p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-ink">{p.name}</p>

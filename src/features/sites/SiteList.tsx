@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import { downloadCsv } from '../payroll-shared/export';
@@ -6,6 +7,7 @@ import { Modal } from '../../components/ui';
 import { useT, useLang, formatDate } from '../../i18n';
 import type { DictKey } from '../../i18n';
 import { useAuthStore } from '../../stores/authStore';
+import { fullName } from '../../lib/personName';
 import { UserRole, PERMISSIONS, ROLE_PERMISSIONS } from '../../types';
 import type { Permission } from '../../types';
 import {
@@ -127,6 +129,7 @@ export function SiteList() {
   const { user } = useAuthStore();
   const canCreate = can(user?.role, PERMISSIONS.SITE_CREATE);
   const canUpdate = can(user?.role, PERMISSIONS.SITE_UPDATE);
+  const canAssign = can(user?.role, PERMISSIONS.GUARD_ASSIGN_SITE);
 
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,8 +154,31 @@ export function SiteList() {
   const [formError, setFormError] = useState('');
 
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number; openUp: boolean } | null>(null);
+  // Opening the menu can itself scroll the table (revealing a partially
+  // visible row); ignore scroll events for a moment so the menu is not closed
+  // by the scroll that its own click caused.
+  const menuOpenedAt = useRef(0);
   const [confirmTarget, setConfirmTarget] = useState<Site | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  // Assign-guard action (per site row): pick an active guard and post to
+  // /guards/assign-site with this site as the target.
+  const [assignTarget, setAssignTarget] = useState<Site | null>(null);
+  const [assignGuards, setAssignGuards] = useState<any[]>([]);
+  const [assignGuardId, setAssignGuardId] = useState('');
+  const [assignRole, setAssignRole] = useState<'GUARD' | 'SUPERVISOR'>('GUARD');
+  const [assignFrom, setAssignFrom] = useState(new Date().toLocaleDateString('en-CA'));
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignError, setAssignError] = useState('');
+
+  // Permanent delete — force delete: the site and everything recorded against
+  // it (assignments, shifts, attendance, hours, rates, rotations, notes, price
+  // history) go at once, so it works even when guards were assigned.
+  const [deleteTarget, setDeleteTarget] = useState<Site | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
   const fetchSites = useCallback(async () => {
     setLoading(true);
@@ -306,6 +332,73 @@ export function SiteList() {
     }
   };
 
+  const openAssign = async (s: Site) => {
+    setMenuFor(null);
+    setAssignTarget(s);
+    setAssignGuardId('');
+    setAssignRole('GUARD');
+    setAssignFrom(new Date().toLocaleDateString('en-CA'));
+    setAssignError('');
+    setAssignLoading(true);
+    try {
+      const res = await api.get('/guards');
+      // /guards returns { employee, profile, currentAssignments } rows — flatten
+      // the employee so the picker has _id, names and the current assignments.
+      const rows = (res.data.data || []).map((r: any) => (r && r.employee
+        ? { ...r.employee, currentAssignments: r.currentAssignments || [] }
+        : r));
+      setAssignGuards(rows);
+    } catch (err: any) {
+      setAssignError(err.response?.data?.message || 'Unable to load guards.');
+      setAssignGuards([]);
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const submitAssign = async () => {
+    if (!assignTarget || !assignGuardId) return;
+    setAssignSaving(true);
+    setAssignError('');
+    const guard = assignGuards.find((g) => g._id === assignGuardId);
+    try {
+      await api.post('/guards/assign-site', {
+        guardId: assignGuardId,
+        siteId: assignTarget._id,
+        effectiveFrom: assignFrom,
+        role: assignRole,
+      });
+      setNotice(`${guard ? fullName(guard) : 'Guard'} assigned to ${assignTarget.siteName}.`);
+      setAssignTarget(null);
+      fetchSites();
+    } catch (err: any) {
+      setAssignError(err.response?.data?.message || 'Unable to assign the guard to this site.');
+    } finally {
+      setAssignSaving(false);
+    }
+  };
+
+  const handleDeletePermanent = async () => {
+    if (!deleteTarget) return;
+    setActionBusy(true);
+    setDeleteError('');
+    try {
+      const res = await api.delete(`/sites/${deleteTarget._id}/permanent`);
+      const removed = (res.data?.data?.removed || []) as { label: string; count: number }[];
+      const detail = removed.length
+        ? ` Removed ${removed.map((r) => `${r.count} ${r.label}`).join(', ')}.`
+        : '';
+      setNotice(`Site "${deleteTarget.siteName}" permanently deleted.${detail}`);
+      setDeleteTarget(null);
+      setPage(1);
+      fetchSites();
+    } catch (err: any) {
+      setDeleteError(err.response?.data?.message || 'Unable to delete the site.');
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -341,6 +434,43 @@ export function SiteList() {
   const visibleColumns = COLUMNS.filter((c) => !hiddenCols.includes(c.key));
   const from = total === 0 ? 0 : (page - 1) * limit + 1;
   const to = Math.min(page * limit, total);
+
+  const closeMenu = () => { setMenuFor(null); setMenuPos(null); };
+
+  /**
+   * Row action menu. It used to be absolutely positioned inside the table's
+   * `overflow-x-auto` wrapper, so for the last rows it was clipped by that
+   * scroll container (and pushed off-screen on short viewports) and the action
+   * buttons never appeared. Position it against the viewport instead, in a
+   * portal, flipping it upwards when there is not enough room below.
+   */
+  const openRowMenu = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
+    if (menuFor === id) { closeMenu(); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const MENU_W = 200;
+    const MENU_H = 220;
+    const openUp = r.bottom + MENU_H > window.innerHeight - 8;
+    const left = Math.min(Math.max(8, r.right - MENU_W), window.innerWidth - MENU_W - 8);
+    menuOpenedAt.current = Date.now();
+    setMenuFor(id);
+    setMenuPos({ top: openUp ? Math.max(8, r.top - 6) : r.bottom + 6, left, openUp });
+  };
+
+  // A menu pinned to viewport coordinates must not survive scrolling/resizing.
+  useEffect(() => {
+    if (!menuFor) return;
+    const onViewportChange = () => {
+      if (Date.now() - menuOpenedAt.current < 300) return;
+      setMenuFor(null);
+      setMenuPos(null);
+    };
+    window.addEventListener('scroll', onViewportChange, true);
+    window.addEventListener('resize', onViewportChange);
+    return () => {
+      window.removeEventListener('scroll', onViewportChange, true);
+      window.removeEventListener('resize', onViewportChange);
+    };
+  }, [menuFor]);
 
   const renderCell = (s: Site, key: string) => {
     switch (key) {
@@ -384,6 +514,12 @@ export function SiteList() {
 
   return (
     <div className="p-6 space-y-4">
+      {notice && (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-success-line bg-success-subtle px-4 py-3 text-sm text-success-text">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} aria-label="Dismiss message" className="text-lg leading-none">×</button>
+        </div>
+      )}
       {/* Toolbar: search + refresh | Export, Add Site, column visibility */}
       <div className="flex flex-wrap items-center gap-3" data-tour="sites-toolbar">
         <div className="relative flex-1 min-w-[220px] max-w-sm">
@@ -571,51 +707,85 @@ export function SiteList() {
                         {renderCell(s, col.key)}
                       </td>
                     ))}
-                    <td className="px-4 py-3 relative text-right">
+                    <td className="px-4 py-3 text-right">
                       <button
-                        onClick={() => setMenuFor(menuFor === s._id ? null : s._id)}
+                        onClick={(e) => openRowMenu(e, s._id)}
+                        aria-label={t('actions')}
+                        aria-haspopup="menu"
+                        aria-expanded={menuFor === s._id}
                         className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-subtle transition-colors"
                         title={t('actions')}
                       >
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
-                      {menuFor === s._id && (
+                      {menuFor === s._id && menuPos && createPortal(
                         <>
-                          <div className="fixed inset-0 z-30" onClick={() => setMenuFor(null)} />
-                          <div className="absolute right-0 top-full mt-1 w-40 bg-surface border border-line rounded-xl shadow-overlay z-40 py-1 text-left">
+                          <div className="fixed inset-0 z-40" onClick={closeMenu} />
+                          <div
+                            role="menu"
+                            className="fixed z-50 w-50 min-w-[12rem] bg-surface border border-line rounded-xl shadow-overlay py-1 text-left"
+                            style={{
+                              top: menuPos.top,
+                              left: menuPos.left,
+                              transform: menuPos.openUp ? 'translateY(-100%)' : undefined,
+                            }}
+                          >
                             <button
-                              onClick={() => { setMenuFor(null); navigate(`/sites/${s._id}`); }}
-                              className="w-full px-3 py-2 text-sm text-ink hover:bg-subtle transition-colors"
+                              role="menuitem"
+                              onClick={() => { closeMenu(); navigate(`/sites/${s._id}`); }}
+                              className="w-full px-3 py-2 text-sm text-ink hover:bg-subtle transition-colors text-left"
                             >
                               {t('view')}
                             </button>
+                            {canAssign && (
+                              <button
+                                role="menuitem"
+                                onClick={() => openAssign(s)}
+                                className="w-full px-3 py-2 text-sm text-ink hover:bg-subtle transition-colors text-left"
+                              >
+                                Assign guard
+                              </button>
+                            )}
                             {canUpdate && (
                               <button
-                                onClick={() => { setMenuFor(null); openEdit(s); }}
-                                className="w-full px-3 py-2 text-sm text-ink hover:bg-subtle transition-colors"
+                                role="menuitem"
+                                onClick={() => { closeMenu(); openEdit(s); }}
+                                className="w-full px-3 py-2 text-sm text-ink hover:bg-subtle transition-colors text-left"
                               >
                                 {t('edit')}
                               </button>
                             )}
                             {canUpdate && s.status === 'ACTIVE' && (
                               <button
-                                onClick={() => { setMenuFor(null); setConfirmTarget(s); }}
-                                className="w-full px-3 py-2 text-sm text-danger-text hover:bg-danger-subtle transition-colors"
+                                role="menuitem"
+                                onClick={() => { closeMenu(); setConfirmTarget(s); }}
+                                className="w-full px-3 py-2 text-sm text-danger-text hover:bg-danger-subtle transition-colors text-left"
                               >
                                 {t('deactivate')}
                               </button>
                             )}
+                            {canUpdate && (
+                              <button
+                                role="menuitem"
+                                onClick={() => { closeMenu(); setDeleteError(''); setDeleteTarget(s); }}
+                                className="w-full px-3 py-2 text-sm text-danger-text hover:bg-danger-subtle transition-colors text-left"
+                              >
+                                Delete permanently
+                              </button>
+                            )}
                             {canUpdate && s.status !== 'ACTIVE' && (
                               <button
-                                onClick={() => { setMenuFor(null); handleReactivate(s); }}
+                                role="menuitem"
+                                onClick={() => { closeMenu(); handleReactivate(s); }}
                                 disabled={actionBusy}
-                                className="w-full px-3 py-2 text-sm text-success-text hover:bg-success-subtle transition-colors disabled:opacity-50"
+                                className="w-full px-3 py-2 text-sm text-success-text hover:bg-success-subtle transition-colors disabled:opacity-50 text-left"
                               >
                                 {t('reactivate')}
                               </button>
                             )}
                           </div>
-                        </>
+                        </>,
+                        document.body,
                       )}
                     </td>
                   </tr>
@@ -967,6 +1137,123 @@ export function SiteList() {
         <p className="text-sm text-muted">
           {t('deactivateSiteConfirm', { name: confirmTarget?.siteName || '' })}
         </p>
+      </Modal>
+
+      {/* Assign a guard to this specific site (per-row operation). */}
+      <Modal
+        open={!!assignTarget}
+        onClose={() => { if (!assignSaving) setAssignTarget(null); }}
+        title={`Assign guard${assignTarget ? ` — ${assignTarget.siteName}` : ''}`}
+        subtitle={assignTarget ? `${assignTarget.siteCode} · ${assignTarget.location}` : ''}
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <button
+              type="button"
+              onClick={() => setAssignTarget(null)}
+              disabled={assignSaving}
+              className="px-5 py-2.5 rounded-xl border border-line bg-surface text-sm font-medium text-ink hover:bg-canvas transition-colors disabled:opacity-50"
+            >
+              {t('cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={submitAssign}
+              disabled={assignSaving || !assignGuardId}
+              className="px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm flex items-center gap-2"
+            >
+              {assignSaving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {assignSaving ? 'Assigning…' : 'Assign guard'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {assignError && (
+            <div className="bg-danger-subtle border border-danger-line text-danger-text px-4 py-3 rounded-xl text-sm">{assignError}</div>
+          )}
+          <div>
+            <label className="v-label v-label--required">Guard</label>
+            <select
+              value={assignGuardId}
+              onChange={(e) => setAssignGuardId(e.target.value)}
+              disabled={assignLoading}
+              className="v-input cursor-pointer"
+            >
+              <option value="">{assignLoading ? 'Loading guards…' : 'Select a guard'}</option>
+              {assignGuards
+                .filter((g) => !(g.currentAssignments || []).some(
+                  (a: any) => (typeof a.siteId === 'object' && a.siteId ? a.siteId._id : a.siteId) === assignTarget?._id,
+                ))
+                .map((g) => (
+                  <option key={g._id} value={g._id}>{fullName(g)} ({g.employeeCode})</option>
+                ))}
+            </select>
+            <p className="text-[11px] text-muted mt-1">Guards already assigned to this site are hidden.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="v-label v-label--required">Start date</label>
+              <input type="date" value={assignFrom} onChange={(e) => setAssignFrom(e.target.value)} className="v-input" />
+            </div>
+            <div>
+              <label className="v-label">Role at site</label>
+              <select
+                value={assignRole}
+                onChange={(e) => setAssignRole(e.target.value as 'GUARD' | 'SUPERVISOR')}
+                className="v-input cursor-pointer"
+              >
+                <option value="GUARD">Guard</option>
+                <option value="SUPERVISOR">Supervisor</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted">Payroll prices this deployment from the site's effective compensation rate, not the guard's legacy profile rate.</p>
+        </div>
+      </Modal>
+
+      {/* Permanent delete — for a site created by mistake. */}
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => { if (!actionBusy) { setDeleteTarget(null); setDeleteError(''); } }}
+        title="Delete site permanently"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              disabled={actionBusy}
+              className="px-5 py-2.5 rounded-xl border border-line bg-surface text-sm font-medium text-ink hover:bg-canvas transition-colors disabled:opacity-50"
+            >
+              {t('cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handleDeletePermanent}
+              disabled={actionBusy}
+              className="px-6 py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {actionBusy && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              Delete permanently
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted">
+            This removes <b>{deleteTarget?.siteName}</b> ({deleteTarget?.siteCode}) from the system. Use it only for a site that was created by mistake.
+          </p>
+          <p className="text-sm text-danger-text">
+            This is a force delete and cannot be undone.
+          </p>
+          <p className="text-xs text-muted">
+            Guard assignments, shifts, attendance, monthly hours, compensation rates, rotations, notes and price history recorded against this site are deleted with it, and any guard assigned here is relieved. Payroll records are kept — they store their own site name, so guard pay history stays intact.
+          </p>
+          {deleteError && (
+            <div className="bg-danger-subtle border border-danger-line text-danger-text px-3 py-2 rounded-lg text-sm">{deleteError}</div>
+          )}
+        </div>
       </Modal>
     </div>
   );
